@@ -96,25 +96,6 @@ static void jc_kv_insert(jc_json_t *js, jc_key_t *key, jc_val_t *val)
     --js->free;
 }
 
-//static int jc_bsearch_key(jc_json_t *js, const char *key)
-//{
-//    int      l, r, m, rc;
-//
-//    for (l = 0, r = js->size - 1; l <= r; /* void */ ) {
-//        m = l + ((r -l) >> 1);
-//        rc = strcmp(key, js->keys[m]->body);
-//        if (rc > 0) {
-//            l = m + 1;
-//        } else if (rc < 0) {
-//            r = m - 1;
-//        } else {
-//            return m;
-//        }
-//    }
-//    return -1;
-//}
-
-
 static int jc_array_incr(jc_array_t *arr, jc_pool_t *pool)
 {
     size_t      i;
@@ -190,53 +171,6 @@ static int jc_trans_array(jc_json_t *js, int idx)
 
     return jc_array_append(arr, js->pool, val);
 }
-
-//static int __jc_add_bool(jc_json_t *js, const char *k, int bl)
-//{
-//    size_t       key_size, key_len;
-//    jc_key_t    *key;
-//    jc_val_t    *val;
-//
-//    if (js->free == 0) {
-//        if (jc_kv_incr(js) == -1) {
-//            return -1;
-//        }
-//    }
-//
-//    key_len = strlen(k) + 1;
-//    key_size = jc_align(sizeof(jc_key_t) + key_len);
-//    key = jc_pool_alloc(js->pool, key_size);
-//    val = jc_pool_alloc(js->pool, sizeof(jc_val_t));
-//    if (key == NULL || val == NULL) {
-//        return -1;
-//    }
-//
-//    /* key assign */
-//    key->size = key_len;   /* including the terminating '\0' */
-//    key->free = key_size - key_len;
-//    strncpy(key->body, k, key->size + key->free);
-//
-//    /* value assign */
-//    val->type = JC_BOOL;
-//    val->data.b = (short)(bl != 0);
-//
-//    jc_kv_insert(js, key, val);
-//    return 0;
-//}
-
-//static int jc_array_append_bool(jc_json_t *js, int idx, int bl)
-//{
-//    jc_val_t  *val;
-//
-//    assert(js->vals[idx]->type == JC_ARRAY);
-//
-//    if ((val = jc_pool_alloc(js->pool, sizeof(jc_val_t))) == NULL) {
-//        return -1;
-//    }
-//    val->type = JC_BOOL;
-//    val->data.b = (short)(bl != 0);
-//    return jc_array_append(js->vals[idx]->data.a, js->pool, val);
-//}
 
 static int jc_bsearch_key(jc_json_t *js, jc_key_t *key)
 {
@@ -495,7 +429,7 @@ static int __jc_json_value(jc_val_t *val, char *p)
 
     switch (val->type) {
         case JC_INT:
-            p += sprintf(p, "%ld", val->data.i);
+            p += sprintf(p, "%lld", val->data.i);
             break;
 
         case JC_BOOL:
@@ -572,6 +506,7 @@ static int __jc_json_str(jc_json_t *js, char *p)
     *p++ = '}';
     return (int)(p - base);
 }
+
 const char *jc_json_str(jc_json_t *js)
 {
     size_t      jsize, n;
