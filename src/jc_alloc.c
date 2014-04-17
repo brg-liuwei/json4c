@@ -54,9 +54,13 @@ jc_pool_t *jc_pool_create(size_t size)
     }
 #ifdef HAVE_MALLOC_H
     p = (jc_pool_t *)memalign(JC_MEMALIGN, size);
-#else
+#elif defined HAVE_STDLIB_H
     int rc;
     rc = posix_memalign((void **)&p, JC_MEMALIGN, size);
+#else
+    fprintf(stderr, "%s:%d Cannot invoke posix_memalign or memalign\n",
+            __FILE__, __LINE__);
+    exit(-1);
 #endif
 
     if (p == NULL
@@ -117,7 +121,7 @@ static void *jc_pool_alloc_large(jc_pool_t *p, size_t size)
     large->next = p->large;
     p->large = large;
     large->size = size;
-    return large->ptr = calloc(1, size);
+    return large->ptr = (jc_pool_large_t *)calloc(1, size);
 }
 
 static void *jc_pool_alloc_block(jc_pool_t *pool, size_t size)
@@ -132,9 +136,13 @@ static void *jc_pool_alloc_block(jc_pool_t *pool, size_t size)
 
 #ifdef HAVE_MALLOC_H
     p = (jc_pool_t *)memalign(JC_MEMALIGN, pool_size);
-#else
+#elif defined HAVE_STDLIB_H
     int rc;
     rc = posix_memalign((void **)&p, JC_MEMALIGN, pool_size);
+#else
+    fprintf(stderr, "%s:%d Cannot invoke posix_memalign of memalign\n",
+            __FILE__, __LINE__);
+    exit(-1);
 #endif
 
     if (p == NULL

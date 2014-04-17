@@ -6,6 +6,8 @@
  * I followed your memory pool of nginx 
  * */
 
+#include "jc_config.h"
+
 #ifdef HAVE_SYS_TYPES_H
 # include <sys/types.h>
 #else

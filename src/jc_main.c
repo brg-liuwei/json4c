@@ -4,13 +4,24 @@
 #include <stdio.h>
 #include <string.h>
 
+/*
+ * just to test
+ * */
+
+#define RED "\033[31m"
+#define YELLOW "\033[33m"
+#define BLUEBG "\033[44m"
+#define WHITEBG "\033[47m"
+#define BLINK "\033[5m"
+#define HIGHLIGHT "\033[1m"
+#define NONE "\033[0m"
+
 int main(int argc, char *argv[])
 {
     int         i;
     jc_json_t  *js, *top;
 
     top = jc_json_create();
-
     for (i = 0; i != 10; ++i) {
         js = jc_json_create();
 
@@ -31,7 +42,7 @@ int main(int argc, char *argv[])
     jc_json_add_str(top, "Zoo", "Cassandra");
     jc_json_add_str(top, "Zoo", "Hive");
 
-    printf("%s\n", jc_json_str(top));
+    printf(RED WHITEBG HIGHLIGHT "%s" NONE "\n", jc_json_str(top));
 
     jc_json_destroy(top);
 
