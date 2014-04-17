@@ -260,6 +260,22 @@ int jc_json_add_int(jc_json_t *js, const char *key, int64_t i)
     return jc_json_add_kv(js, k, v);
 }
 
+int jc_json_add_float(jc_json_t *js, const char *key, double f)
+{
+    jc_key_t  *k;
+    jc_val_t  *v;
+    assert(key != NULL);
+
+    if ((k = jc_key(js->pool, key)) == NULL) {
+        return -1;
+    }
+    v = jc_pool_alloc(js->pool, sizeof(jc_val_t));
+    v->type = JC_FLOAT;
+    v->data.f = f;
+
+    return jc_json_add_kv(js, k, v);
+}
+
 int jc_json_add_bool(jc_json_t *js, const char *key, int bl)
 {
     jc_key_t  *k;
@@ -368,6 +384,7 @@ static size_t __jc_json_array_size(jc_array_t *arr)
 static size_t __jc_json_val_size(jc_val_t *val)
 {
     size_t s;
+    char f[512];
 
     s = 0;
 
@@ -378,6 +395,10 @@ static size_t __jc_json_val_size(jc_val_t *val)
             break;
         case JC_BOOL:
             s += sizeof("false") - 1;
+            break;
+        case JC_FLOAT:
+            /* use snprintf to calc the size of double */
+            s += snprintf(f, 512, "%.3lf", val->data.f);
             break;
         case JC_STR:
             s += val->data.s->size + sizeof("\"\"") - 1;
@@ -447,6 +468,10 @@ static int __jc_json_value(jc_val_t *val, char *p)
                 p[4] = 'e';
                 p += 5;
             }
+            break;
+
+        case JC_FLOAT:
+            p += sprintf(p, "%.3lf", val->data.f);
             break;
 
         case JC_STR:

@@ -35,6 +35,22 @@ struct jc_pool_s {
 static int jc_initialized = 0;
 static size_t jc_pagesize;
 
+#ifdef HAVE_MALLOC_H
+#define jc_memalign memalign
+#elif defined HAVE_STDLIB_H
+static void *jc_memalign(size_t boundary, size_t size)
+{
+    int   rc;
+    void *ptr;
+
+    rc = posix_memalign(&ptr, JC_MEMALIGN, size);
+    if (rc != 0 || ptr == NULL) {
+        return NULL;
+    }
+    return ptr;
+}
+#endif
+
 static void jc_init()
 {
     if (jc_initialized == 0) {
@@ -52,23 +68,8 @@ jc_pool_t *jc_pool_create(size_t size)
     if (size < JC_POOLMINSIZE) {
         size = JC_POOLMINSIZE;
     }
-#ifdef HAVE_MALLOC_H
-    p = (jc_pool_t *)memalign(JC_MEMALIGN, size);
-#elif defined HAVE_STDLIB_H
-    int rc;
-    rc = posix_memalign((void **)&p, JC_MEMALIGN, size);
-#else
-    fprintf(stderr, "%s:%d Cannot invoke posix_memalign or memalign\n",
-            __FILE__, __LINE__);
-    exit(-1);
-#endif
-
-    if (p == NULL
-#ifndef HAVE_MALLOC_H
-            || rc != 0
-#endif
-            )
-    {
+    p = (jc_pool_t *)jc_memalign(JC_MEMALIGN, size);
+    if (p == NULL) {
         return NULL;
     }
     
@@ -134,23 +135,9 @@ static void *jc_pool_alloc_block(jc_pool_t *pool, size_t size)
 
     pool_size = (size_t)(pool->data.end - (char *)pool);
 
-#ifdef HAVE_MALLOC_H
-    p = (jc_pool_t *)memalign(JC_MEMALIGN, pool_size);
-#elif defined HAVE_STDLIB_H
-    int rc;
-    rc = posix_memalign((void **)&p, JC_MEMALIGN, pool_size);
-#else
-    fprintf(stderr, "%s:%d Cannot invoke posix_memalign of memalign\n",
-            __FILE__, __LINE__);
-    exit(-1);
-#endif
+    p = (jc_pool_t *)jc_memalign(JC_MEMALIGN, pool_size);
 
-    if (p == NULL
-#ifndef HAVE_MALLOC_H
-            || rc != 0
-#endif
-            )
-    {
+    if (p == NULL) {
         return NULL;
     }
     
