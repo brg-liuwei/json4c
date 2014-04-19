@@ -454,7 +454,7 @@ static size_t __jc_json_val_size(jc_val_t *val)
             break;
         case JC_FLOAT:
             /* use snprintf to calc the size of double */
-            s += snprintf(f, 512, "%.3lf", val->data.f);
+            s += snprintf(f, 512, "%.03lg", val->data.f);
             break;
         case JC_STR:
             s += val->data.s->size + sizeof("\"\"") - 1;
@@ -527,7 +527,7 @@ static int __jc_json_value(jc_val_t *val, char *p)
             break;
 
         case JC_FLOAT:
-            p += sprintf(p, "%.3lf", val->data.f);
+            p += sprintf(p, "%.3lg", val->data.f);
             break;
 
         case JC_STR:
@@ -611,12 +611,224 @@ const char *jc_json_str(jc_json_t *js)
  * please see http://www.json.org/ 
  * ==================================== */
 
+typedef enum {
+    JC_NUM_START_SIGN = 0,
+    JC_NUM_START_ZERO,
+    JC_NUM_START_DIG,
+    JC_NUM_INT_DIG,
+    JC_NUM_POINT,
+    JC_NUM_FLT_DIG,
+    JC_NUM_E_SYMBOL,
+    JC_NUM_E_SIGN,
+    JC_NUM_E_DIG
+} jc_num_state_t;
 
-static int __jc_json_parse_array(jc_json_t *js, const char *p, jc_val_t **val) { return -1; }
-static int __jc_json_parse_sub_json(jc_json_t *js, const char *p, jc_val_t **val) { return -1; }
-static int __jc_json_parse_number(jc_json_t *js, const char *p, jc_val_t **val) { return -1; }
-static int __jc_json_parse_bool(jc_json_t *js, const char *p, jc_val_t **val) { return -1; }
-static int __jc_json_parse_null(jc_json_t *js, const char *p, jc_val_t **val) { return -1; }
+static int __jc_json_parse_number(jc_json_t *js, const char *p, jc_val_t **val)
+{
+    int      n, sign, e_sign;
+    short    type;    /* 0: integer; 1: double float */
+    int64_t  i_part, e_part;
+    double   f_tmp, f_factor, f_part;
+    double   f_val;
+
+    jc_num_state_t  state;
+
+    sign = e_sign = 0;
+    type = 0;
+    i_part = e_part = 0;
+    f_part = 0;
+    f_factor = 1;
+
+    if (p[0] == '-') {
+        /* if p[0] == '+': illegal */
+        state = JC_NUM_START_SIGN;
+        sign = 1;
+    } else if (p[0] == '0') {
+        state = JC_NUM_START_ZERO;
+    } else if (p[0] >= '1' && p[0] <= '9') {
+        state = JC_NUM_START_DIG;
+        i_part = p[0] - '0';
+    } else {
+        return -1;
+    }
+
+    for (n = 1; p[n] != '\0'; ++n) {
+        switch (state) {
+            case JC_NUM_START_SIGN:
+                if (p[n] == '0') {
+                    state = JC_NUM_START_ZERO;
+                } else if (p[n] >= '1' && p[n] <= '9') {
+                    state = JC_NUM_START_DIG;
+                    i_part = p[n] - '0';
+                } else {
+                    return -1;
+                }
+                break;
+
+            case JC_NUM_START_ZERO:
+                if (p[n] == '.') {
+                    state = JC_NUM_POINT;
+                    type = 1;
+                } else if (p[n] == 'e' || p[n] == 'E') {
+                    state = JC_NUM_E_SYMBOL;
+                    type = 1;
+                } else {
+                    goto calc;
+                }
+                break;
+
+            case JC_NUM_START_DIG:
+                if (p[n] >= '0' && p[n] <= '9') {
+                    state = JC_NUM_INT_DIG;
+                    i_part *= 10;
+                    i_part += p[n] - '0';
+                } else if (p[n] == '.') {
+                    state = JC_NUM_POINT;
+                    type = 1;
+                } else if (p[n] == 'e' || p[n] == 'E') {
+                    state = JC_NUM_E_SYMBOL;
+                    type = 1;
+                } else {
+                    goto calc;
+                }
+                break;
+
+            case JC_NUM_INT_DIG:
+                if (p[n] >= '0' && p[n] <= '9') {
+                    i_part *= 10;
+                    i_part += p[n] - '0';
+                } else if (p[n] == '.') {
+                    state = JC_NUM_POINT;
+                    type = 1;
+                } else if (p[n] == 'e' || p[n] == 'E') {
+                    state = JC_NUM_E_SYMBOL;
+                    type = 1;
+                } else {
+                    goto calc;
+                }
+                break;
+
+            case JC_NUM_POINT:
+                if (p[n] >= '0' && p[n] <= '9') {
+                    f_factor *= 0.1;
+                    f_tmp = f_factor * (p[n] - '0');
+                    f_part += f_tmp;
+                    state = JC_NUM_FLT_DIG;
+                } else {
+                    return -1;
+                }
+                break;
+
+            case JC_NUM_FLT_DIG:
+                if (p[n] >= '0' && p[n] <= '9') {
+                    f_factor *= 0.1;
+                    f_tmp = f_factor * (p[n] - '0');
+                    f_part += f_tmp;
+                    state = JC_NUM_FLT_DIG;
+                } else if (p[n] == 'e' || p[n] == 'E') {
+                    state = JC_NUM_E_SYMBOL;
+                } else {
+                    goto calc;
+                }
+                break;
+
+            case JC_NUM_E_SYMBOL:
+                if (p[n] == '+') {
+                    state = JC_NUM_E_SIGN;
+                } else if (p[n] == '-') {
+                    e_sign = 1;
+                    state = JC_NUM_E_SIGN;
+                } else if (p[n] >= '0' && p[n] <= '9') {
+                    e_part *= 10;
+                    e_part += (p[n] - '0');
+                    state = JC_NUM_E_DIG;
+                } else {
+                    return -1;
+                }
+                break;
+
+            case JC_NUM_E_SIGN:
+                if (p[n] >= '0' && p[n] <= '9') {
+                    e_part *= 10;
+                    e_part += (p[n] - '0');
+                    state = JC_NUM_E_DIG;
+                } else {
+                    return -1;
+                }
+                break;
+
+            case JC_NUM_E_DIG:
+                if (p[n] >= '0' && p[n] <= '9') {
+                    e_part *= 10;
+                    e_part += (p[n] - '0');
+                } else {
+                    goto calc;
+                }
+                break;
+        }
+    }
+
+calc:
+    *val = jc_pool_alloc(js->pool, sizeof(jc_val_t));
+    if (*val == NULL) {
+        return -1;
+    }
+
+    if (type == 0) {
+        /* integer */
+        (*val)->type = JC_INT;
+        (*val)->data.i = (sign == 0 ? i_part : -i_part);
+        return n;
+    }
+
+    /* double */
+    f_val = i_part + f_part;
+    if (sign != 0) {
+        f_val = -f_val;
+    }
+    for (f_factor = 1; e_part > 0; --e_part) {
+        f_factor *= 10;
+    }
+    (*val)->type = JC_FLOAT;
+    (*val)->data.f = (e_sign == 0 ? f_val * f_factor : f_val / f_factor);
+    return n;
+}
+
+static int __jc_json_parse_bool(jc_json_t *js, const char *p, jc_val_t **val)
+{
+    jc_bool_t  b;
+
+    if (p[0] == 't' && p[1] == 'r' && p[2] == 'u' && p[3] == 'e') {
+        b = 1;
+    } else if (p[0] == 'f' && p[1] == 'a' && p[2] == 'l' 
+            && p[3] == 's' && p[4] == 'e')
+    {
+        b = 0;
+    } else {
+        return -1;
+    }
+
+    *val = jc_pool_alloc(js->pool, sizeof(jc_val_t));
+    if (*val == NULL) {
+        return -1;
+    }
+    (*val)->type = JC_BOOL;
+    (*val)->data.b = b;
+    return b == 1 ? 4 : 5;
+}
+
+static int __jc_json_parse_null(jc_json_t *js, const char *p, jc_val_t **val)
+{
+    if (p[0] == 'n' && p[1] == 'u' && p[2] == 'l' && p[3] == 'l') {
+        *val = jc_pool_alloc(js->pool, sizeof(jc_val_t));
+        if (*val == NULL) {
+            return -1;
+        }
+        (*val)->type = JC_NULL;
+        return 4;   /* strlen("null") */
+    }
+    return -1;
+}
 
 static int __jc_json_parse_str(jc_json_t *js, const char *p, jc_val_t **val)
 {
@@ -635,6 +847,10 @@ static int __jc_json_parse_str(jc_json_t *js, const char *p, jc_val_t **val)
     (*val)->data.s = str;
     return n;
 }
+
+static int __jc_json_parse_array(jc_json_t *js, const char *p, jc_val_t **val) { return -1; }
+
+static int __jc_json_parse_sub_json(jc_json_t *js, const char *p, jc_val_t **val) { return -1; }
 
 typedef enum {
     JC_STR_START = 0,

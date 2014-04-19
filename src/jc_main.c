@@ -48,11 +48,13 @@ int main(int argc, char *argv[])
 
     jc_json_destroy(top);
 
-    char *json_str = "{\"RodWell\":\"America\",\"Fatoni\":\"Italy\","
-        "\"Mekstroth\":\"America\",\"Belladona\":\"Italy\","
-        "\"Reese\":\"England\",\"Zia\":\"America\","
+    char *json_str = "{\"RodWell\":\"America\",\"Fatoni\":18e-3,"
+        "\"Mekstroth\":-8.88,\"Belladona\":-98e-2,"
+        "\"Reese\":99.999e+3,\"Zia\":\"America\","
         "\"Gorozzo\":\"Italy\",\"Hanman\":\"America\","
-        "\"Nunes\":\"Italy\",\"Dijver\":\"Netherland\"}";
+        "\"Nunes\":\"Italy\",\"Dijver\":\"Netherland\",\"Boll\":null,"
+        "\"Gestem\":true,\"Gallizzi\":true,\"Stayman\":false}";
+
     printf("%s\n", json_str);
     top = jc_json_parse(json_str);
     if (top)
