@@ -8,9 +8,61 @@
 #define JC_MEMSIZE 1024
 #define JC_INCSTEP 16
 
+typedef short                jc_bool_t;
+typedef double               jc_float_t;
+typedef int64_t              jc_int_t;
+typedef struct jc_str_s      jc_str_t;
+typedef struct jc_array_s    jc_array_t;
+
+typedef struct jc_str_s      jc_key_t;
+typedef struct jc_val_s      jc_val_t;
+
+typedef enum __jc_type_t {
+    JC_BOOL = 0,
+    JC_INT,
+    JC_FLOAT,
+    JC_STR,
+    JC_ARRAY,
+    JC_JSON,
+    JC_NULL
+} jc_type_t;
+
+struct jc_str_s {
+    size_t   size;     /* size of str */
+    size_t   free;     /* free space */
+    char     body[];   /* str */
+};
+
+struct jc_array_s {
+    size_t      size;     /* length of array */
+    size_t      free;     /* free size of array */
+    jc_val_t  **value;
+};
+
+struct jc_val_s {
+    jc_type_t         type;
+    union {
+        jc_bool_t     b;
+        jc_int_t      i;
+        jc_float_t    f;
+        jc_str_t     *s;
+        jc_array_t   *a;
+        jc_json_t    *j;
+    } data;
+};
+
+struct jc_json_s {
+    size_t       size;     /* size of keys and values */
+    size_t       free;     /* free size of keys and values */
+    jc_key_t   **keys;     /* keys of json */
+    jc_val_t   **vals;     /* values of json */
+    jc_pool_t   *pool;     /* mem pool of json */
+};
+
 static int __jc_json_str(jc_json_t *js, char *p);
 static size_t __jc_json_val_size(jc_val_t *val);
-static size_t jc_json_size(jc_json_t *js);
+static size_t __jc_json_size(jc_json_t *js);
+static int __jc_json_parse_key(jc_json_t *js, const char *p, jc_key_t **key);
 
 jc_json_t *jc_json_create()
 {
@@ -39,6 +91,10 @@ void jc_json_destroy(jc_json_t *js)
 {
     size_t      i, j;
     jc_val_t   *val;
+
+    if (js == NULL) {
+        return;
+    }
 
     for (i = 0; i != js->size; ++i) {
         val = js->vals[i];
@@ -407,7 +463,7 @@ static size_t __jc_json_val_size(jc_val_t *val)
             s += __jc_json_array_size(val->data.a);
             break;
         case JC_JSON:
-            s += jc_json_size(val->data.j);
+            s += __jc_json_size(val->data.j);
             break;
         case JC_NULL:
             s += sizeof("null") - 1;
@@ -420,7 +476,7 @@ static size_t __jc_json_val_size(jc_val_t *val)
     return s;
 }
 
-static size_t jc_json_size(jc_json_t *js)
+static size_t __jc_json_size(jc_json_t *js)
 {
     size_t  s, i;
 
@@ -539,7 +595,7 @@ const char *jc_json_str(jc_json_t *js)
 
     assert(js != NULL);
 
-    jsize = jc_json_size(js);
+    jsize = __jc_json_size(js);
     if ((p = jc_pool_alloc(js->pool, jsize + 1)) == NULL) {
         return NULL;
     }
@@ -548,6 +604,283 @@ const char *jc_json_str(jc_json_t *js)
 
     return p;
 }
+
+/* ====================================
+ * To parse json string to json object, 
+ * We use state mechine. For detail,
+ * please see http://www.json.org/ 
+ * ==================================== */
+
+
+static int __jc_json_parse_array(jc_json_t *js, const char *p, jc_val_t **val) { return -1; }
+static int __jc_json_parse_sub_json(jc_json_t *js, const char *p, jc_val_t **val) { return -1; }
+static int __jc_json_parse_number(jc_json_t *js, const char *p, jc_val_t **val) { return -1; }
+static int __jc_json_parse_bool(jc_json_t *js, const char *p, jc_val_t **val) { return -1; }
+static int __jc_json_parse_null(jc_json_t *js, const char *p, jc_val_t **val) { return -1; }
+
+static int __jc_json_parse_str(jc_json_t *js, const char *p, jc_val_t **val)
+{
+    int         n;
+    jc_str_t   *str;
+
+    n = __jc_json_parse_key(js, p, &str);
+    if (n < 0) {
+        return -1;
+    }
+    *val = jc_pool_alloc(js->pool, sizeof(jc_val_t));
+    if (*val == NULL) {
+        return -1;
+    }
+    (*val)->type = JC_STR;
+    (*val)->data.s = str;
+    return n;
+}
+
+typedef enum {
+    JC_STR_START = 0,
+    JC_STR_START_QUA,
+    JC_STR_CHR,
+    JC_STR_TRANS,        /* reverse solidus */
+    JC_STR_END_QUA,
+} jc_str_state_t;
+
+static int __jc_json_parse_key(jc_json_t *js, const char *p, jc_key_t **key)
+{
+    size_t   n;
+    size_t   size;
+
+    jc_str_state_t  state;
+
+    if (p[0] != '\"') {
+        return -1;
+    }
+    for (n = 1, size = 0; /* void */ ; /* void */ ) {
+        switch (p[n]) {
+            case '\0':
+                return -1;
+            case '\\':
+                if (p[n+1] == '\0') {
+                    return -1;
+                }
+                /* TODO: need to judge size of Unicode if support \uXXXX */
+                /* if (p[n+1] == 'u') {
+                 *    calc size
+                 * }
+                 * */
+                n += 2;
+                break;
+            case '"':
+                goto parse;
+            default:
+                ++n;
+                ++size;
+        }
+    }
+
+parse:
+    size = jc_align(sizeof(jc_key_t) + size + 1);  /* add the terminating zero */
+    if ((*key = jc_pool_alloc(js->pool, size)) == NULL) {
+        return -1;
+    }
+    (*key)->size = 0;
+    (*key)->free = size - sizeof(jc_key_t);
+
+    for (n = 0, state = JC_STR_START, size = 0; p[n] != '\0'; /* void */ ) {
+        switch (state) {
+            case JC_STR_START:
+                if (p[n++] != '\"') {
+                    return -1;
+                }
+                state = JC_STR_START_QUA;
+                break;
+
+            case JC_STR_START_QUA:
+                if (p[n] == '\"') {
+                    state = JC_STR_END_QUA;
+                } else if (p[n] == '\\') {
+                    state = JC_STR_TRANS;
+                } else {
+                    state = JC_STR_CHR;
+                    (*key)->body[size++] = p[n];
+                }
+                ++n;
+                break;
+
+            case JC_STR_CHR:
+                if (p[n] == '\"') {
+                    state = JC_STR_END_QUA;
+                } else if (p[n] == '\\') {
+                    state = JC_STR_TRANS;
+                } else {
+                    (*key)->body[size++] = p[n];
+                }
+                ++n;
+                break;
+
+            case JC_STR_TRANS:
+                switch (p[n]) {
+                    case '\"':
+                        (*key)->body[size++] = '\"';
+                        break;
+                    case '\\':
+                        (*key)->body[size++] = '\\';
+                        break;
+                    case '/':
+                        (*key)->body[size++] = '/';
+                        break;
+                    case 'b':
+                        (*key)->body[size++] = '\b';
+                        break;
+                    case 'f':
+                        (*key)->body[size++] = '\f';
+                        break;
+                    case 'n':
+                        (*key)->body[size++] = '\n';
+                        break;
+                    case 'r':
+                        (*key)->body[size++] = '\r';
+                        break;
+                    case 't':
+                        (*key)->body[size++] = '\t';
+                        break;
+                    case 'u':
+                        /* TODO: use wctomb to trans Unicode to Chars */
+                        return -1;
+                    default:
+                        /* illegal char: \x */
+                        return -1;
+                }
+                ++n;
+                state = JC_STR_CHR;
+                break;
+
+            case JC_STR_END_QUA:
+                (*key)->body[size++] = '\0';
+                assert(size <= (*key)->free);
+                (*key)->free -= size;
+                (*key)->size = size;
+                return n;
+        }
+    }
+    return -1;
+}
+
+static int __jc_json_parse_val(jc_json_t *js, const char *p, jc_val_t **val)
+{
+    switch (*p) {
+        case '\"':
+            return __jc_json_parse_str(js, p, val);
+        case '[':
+            return __jc_json_parse_array(js, p, val);
+        case '{':
+            return __jc_json_parse_sub_json(js, p, val);
+        case 't':
+        case 'f':
+            return __jc_json_parse_bool(js, p, val);
+        case 'n':
+            return __jc_json_parse_null(js, p, val);
+        default:
+            if ((*p >= '0' && *p <= '9') || (*p == '-')) {
+                return __jc_json_parse_number(js, p, val);
+            }
+    }
+    *val = NULL;
+    return -1;
+}
+
+typedef enum {
+    JC_OBJ_START = 0,
+    JC_OBJ_LBRACE,
+    JC_OBJ_KEY,
+    JC_OBJ_VAL,
+    JC_OBJ_COLON,
+    //JC_OBJ_COMMA,
+    //JC_OBJ_RBRACE,
+} jc_obj_state_t;
+
+jc_json_t *jc_json_parse(const char *p)
+{
+    int           n;
+    jc_key_t     *key;
+    jc_val_t     *val;
+    jc_json_t    *js;
+    jc_obj_state_t  state;
+
+    assert(p != NULL);
+    if ((js = jc_json_create()) == NULL) {
+        return NULL;
+    }
+
+    state = JC_OBJ_START;
+    while (*p != '\0') {
+        switch (state) {
+            case JC_OBJ_START:
+                if (*p++ == '{') {
+                    state = JC_OBJ_LBRACE;
+                    break;
+                }
+                goto error;
+
+            case JC_OBJ_LBRACE:
+            case JC_OBJ_KEY:
+                n = __jc_json_parse_key(js, p, &key);
+                if (n > 0) {
+                    p += n;
+                    state = JC_OBJ_COLON;
+                    break;
+                }
+                goto error;
+
+            case JC_OBJ_COLON:
+                if (*p++ == ':') {
+                    state = JC_OBJ_VAL;
+                    break;
+                }
+                goto error;
+
+            case JC_OBJ_VAL:
+                n = __jc_json_parse_val(js, p, &val);
+                if (n > 0) {
+                    p += n;
+                    if (*p == ',') {
+                        /* in JC_OBJ_COMMA state */
+                        state = JC_OBJ_KEY;
+                    } else if (*p == '}') {
+                        /* Accept */
+                        jc_json_add_kv(js, key, val);
+                        return js;
+                    } else {
+                        goto error;
+                    }
+                    ++p;
+                    jc_json_add_kv(js, key, val);
+                    break;
+                }
+                goto error;
+
+            default:
+                /* some error happens */
+                assert(0);
+        }
+    }
+
+error:
+    jc_json_destroy(js);
+    return NULL;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

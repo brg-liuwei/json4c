@@ -48,6 +48,17 @@ int main(int argc, char *argv[])
 
     jc_json_destroy(top);
 
+    char *json_str = "{\"RodWell\":\"America\",\"Fatoni\":\"Italy\","
+        "\"Mekstroth\":\"America\",\"Belladona\":\"Italy\","
+        "\"Reese\":\"England\",\"Zia\":\"America\","
+        "\"Gorozzo\":\"Italy\",\"Hanman\":\"America\","
+        "\"Nunes\":\"Italy\",\"Dijver\":\"Netherland\"}";
+    printf("%s\n", json_str);
+    top = jc_json_parse(json_str);
+    if (top)
+        printf(YELLOW HIGHLIGHT BLUEBG "%s" NONE "\n", jc_json_str(top));
+    jc_json_destroy(top);
+
     return 0;
 }
 
