@@ -26,14 +26,14 @@ int main(int argc, char *argv[])
         js = jc_json_create();
 
         jc_json_add_bool(js, "iOS", 0);
-        jc_json_add_int(js, "Windows", 18);
+        jc_json_add_num(js, "Windows", 18);
+        jc_json_add_num(js, "Sina", -3.88);
+        jc_json_add_num(js, "Tencent", 100.2e+9);
         jc_json_add_str(js, "Linux", "bridge");
         jc_json_add_str(js, "Linux", "brg-liuwei");
         jc_json_add_str(js, "Linux", "trump");
         jc_json_add_array(js, "Andriod");
         jc_json_add_str(js, "Andriod", "Alibaba");
-        jc_json_add_float(js, "Sina", -3.88);
-        jc_json_add_float(js, "Tencent", 100.2e+9);
         jc_json_add_null(js, "Sohu");
 
         jc_json_add_json(top, "Google", js);

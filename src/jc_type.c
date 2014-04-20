@@ -9,8 +9,7 @@
 #define JC_INCSTEP 16
 
 typedef short                jc_bool_t;
-typedef double               jc_float_t;
-typedef int64_t              jc_int_t;
+typedef double               jc_num_t;
 typedef struct jc_str_s      jc_str_t;
 typedef struct jc_array_s    jc_array_t;
 
@@ -19,8 +18,7 @@ typedef struct jc_val_s      jc_val_t;
 
 typedef enum __jc_type_t {
     JC_BOOL = 0,
-    JC_INT,
-    JC_FLOAT,
+    JC_NUM,
     JC_STR,
     JC_ARRAY,
     JC_JSON,
@@ -43,8 +41,7 @@ struct jc_val_s {
     jc_type_t         type;
     union {
         jc_bool_t     b;
-        jc_int_t      i;
-        jc_float_t    f;
+        jc_num_t      n;
         jc_str_t     *s;
         jc_array_t   *a;
         jc_json_t    *j;
@@ -299,24 +296,7 @@ static jc_key_t *jc_key(jc_pool_t *pool, const char *key)
     return k;
 }
 
-int jc_json_add_int(jc_json_t *js, const char *key, int64_t i)
-{
-    jc_key_t  *k;
-    jc_val_t  *v;
-
-    assert(key != NULL);
-
-    if ((k = jc_key(js->pool, key)) == NULL) {
-        return -1;
-    }
-    v = jc_pool_alloc(js->pool, sizeof(jc_val_t));
-    v->type = JC_INT;
-    v->data.i = i;
-
-    return jc_json_add_kv(js, k, v);
-}
-
-int jc_json_add_float(jc_json_t *js, const char *key, double f)
+int jc_json_add_num(jc_json_t *js, const char *key, double n)
 {
     jc_key_t  *k;
     jc_val_t  *v;
@@ -326,8 +306,8 @@ int jc_json_add_float(jc_json_t *js, const char *key, double f)
         return -1;
     }
     v = jc_pool_alloc(js->pool, sizeof(jc_val_t));
-    v->type = JC_FLOAT;
-    v->data.f = f;
+    v->type = JC_NUM;
+    v->data.n = n;
 
     return jc_json_add_kv(js, k, v);
 }
@@ -378,6 +358,7 @@ int jc_json_add_str(jc_json_t *js, const char *key, const char *val)
     }
     v = jc_pool_alloc(js->pool, sizeof(jc_val_t));
     v->type = JC_STR;
+
     /* jc_key() returns jc_str */
     if ((v->data.s = jc_key(js->pool, val)) == NULL) {
         return -1;
@@ -445,16 +426,13 @@ static size_t __jc_json_val_size(jc_val_t *val)
     s = 0;
 
     switch (val->type) {
-        case JC_INT:
-            /* max size int64_t: 0x8000000000000000 */
-            s += sizeof("-9223372036854775808") - 1;
-            break;
         case JC_BOOL:
             s += sizeof("false") - 1;
             break;
-        case JC_FLOAT:
+        case JC_NUM:
             /* use snprintf to calc the size of double */
-            s += snprintf(f, 512, "%.03lg", val->data.f);
+            //s += snprintf(f, 512, "%.03lg", val->data.n);
+            s += snprintf(f, 512, "%.03lg", val->data.n);
             break;
         case JC_STR:
             s += val->data.s->size + sizeof("\"\"") - 1;
@@ -505,10 +483,6 @@ static int __jc_json_value(jc_val_t *val, char *p)
     base = p;
 
     switch (val->type) {
-        case JC_INT:
-            p += sprintf(p, "%lld", val->data.i);
-            break;
-
         case JC_BOOL:
             if (val->data.b) {
                 p[0] = 't';
@@ -526,8 +500,8 @@ static int __jc_json_value(jc_val_t *val, char *p)
             }
             break;
 
-        case JC_FLOAT:
-            p += sprintf(p, "%.3lg", val->data.f);
+        case JC_NUM:
+            p += sprintf(p, "%.03lg", val->data.n);
             break;
 
         case JC_STR:
@@ -625,8 +599,7 @@ typedef enum {
 
 static int __jc_json_parse_number(jc_json_t *js, const char *p, jc_val_t **val)
 {
-    int      n, sign, e_sign;
-    short    type;    /* 0: integer; 1: double float */
+    int      n, sign, e_sign, base;
     int64_t  i_part, e_part;
     double   f_tmp, f_factor, f_part;
     double   f_val;
@@ -634,7 +607,6 @@ static int __jc_json_parse_number(jc_json_t *js, const char *p, jc_val_t **val)
     jc_num_state_t  state;
 
     sign = e_sign = 0;
-    type = 0;
     i_part = e_part = 0;
     f_part = 0;
     f_factor = 1;
@@ -668,10 +640,8 @@ static int __jc_json_parse_number(jc_json_t *js, const char *p, jc_val_t **val)
             case JC_NUM_START_ZERO:
                 if (p[n] == '.') {
                     state = JC_NUM_POINT;
-                    type = 1;
                 } else if (p[n] == 'e' || p[n] == 'E') {
                     state = JC_NUM_E_SYMBOL;
-                    type = 1;
                 } else {
                     goto calc;
                 }
@@ -684,10 +654,8 @@ static int __jc_json_parse_number(jc_json_t *js, const char *p, jc_val_t **val)
                     i_part += p[n] - '0';
                 } else if (p[n] == '.') {
                     state = JC_NUM_POINT;
-                    type = 1;
                 } else if (p[n] == 'e' || p[n] == 'E') {
                     state = JC_NUM_E_SYMBOL;
-                    type = 1;
                 } else {
                     goto calc;
                 }
@@ -699,10 +667,8 @@ static int __jc_json_parse_number(jc_json_t *js, const char *p, jc_val_t **val)
                     i_part += p[n] - '0';
                 } else if (p[n] == '.') {
                     state = JC_NUM_POINT;
-                    type = 1;
                 } else if (p[n] == 'e' || p[n] == 'E') {
                     state = JC_NUM_E_SYMBOL;
-                    type = 1;
                 } else {
                     goto calc;
                 }
@@ -774,23 +740,21 @@ calc:
         return -1;
     }
 
-    if (type == 0) {
-        /* integer */
-        (*val)->type = JC_INT;
-        (*val)->data.i = (sign == 0 ? i_part : -i_part);
-        return n;
-    }
-
     /* double */
     f_val = i_part + f_part;
     if (sign != 0) {
         f_val = -f_val;
     }
-    for (f_factor = 1; e_part > 0; --e_part) {
-        f_factor *= 10;
+
+    for (f_factor = 1, base = 1; e_part != 0; e_part >>= 1) {
+        base *= 10;
+        if (e_part & 0x1) {
+            f_factor *= base;
+        }
     }
-    (*val)->type = JC_FLOAT;
-    (*val)->data.f = (e_sign == 0 ? f_val * f_factor : f_val / f_factor);
+
+    (*val)->type = JC_NUM;
+    (*val)->data.n = (e_sign == 0 ? f_val * f_factor : f_val / f_factor);
     return n;
 }
 
@@ -1010,8 +974,6 @@ typedef enum {
     JC_OBJ_KEY,
     JC_OBJ_VAL,
     JC_OBJ_COLON,
-    //JC_OBJ_COMMA,
-    //JC_OBJ_RBRACE,
 } jc_obj_state_t;
 
 jc_json_t *jc_json_parse(const char *p)
@@ -1084,20 +1046,4 @@ error:
     jc_json_destroy(js);
     return NULL;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
