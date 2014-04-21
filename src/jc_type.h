@@ -10,13 +10,11 @@ typedef struct jc_json_s     jc_json_t;
 
 /* json create and delete functions */
 jc_json_t *jc_json_create();
-void jc_json_destroy(jc_json_t *js);
 jc_json_t *jc_json_parse(const char *json_str);
+void jc_json_destroy(jc_json_t *js);
 
 /* json add kv functions */
 int jc_json_add_bool(jc_json_t *js, const char *key, int bool_val);
-//int jc_json_add_int(jc_json_t *js, const char *key, int64_t i);
-//int jc_json_add_float(jc_json_t *js, const char *key, double f);
 int jc_json_add_num(jc_json_t *js, const char *key, double val);
 int jc_json_add_str(jc_json_t *js, const char *key, const char *val);
 int jc_json_add_array(jc_json_t *js, const char *key);

@@ -60,6 +60,7 @@ static int __jc_json_str(jc_json_t *js, char *p);
 static size_t __jc_json_val_size(jc_val_t *val);
 static size_t __jc_json_size(jc_json_t *js);
 static int __jc_json_parse_key(jc_json_t *js, const char *p, jc_key_t **key);
+static int __jc_json_parse_val(jc_json_t *js, const char *p, jc_val_t **val);
 
 jc_json_t *jc_json_create()
 {
@@ -431,8 +432,7 @@ static size_t __jc_json_val_size(jc_val_t *val)
             break;
         case JC_NUM:
             /* use snprintf to calc the size of double */
-            //s += snprintf(f, 512, "%.03lg", val->data.n);
-            s += snprintf(f, 512, "%.03lg", val->data.n);
+            s += snprintf(f, 511, "%.03lg", val->data.n);
             break;
         case JC_STR:
             s += val->data.s->size + sizeof("\"\"") - 1;
@@ -812,9 +812,166 @@ static int __jc_json_parse_str(jc_json_t *js, const char *p, jc_val_t **val)
     return n;
 }
 
-static int __jc_json_parse_array(jc_json_t *js, const char *p, jc_val_t **val) { return -1; }
+typedef enum {
+    JC_ARR_START = 0,
+    JC_ARR_VAL,
+    JC_ARR_COMMA,
+    JC_ARR_END
+} jc_arr_state_t;
 
-static int __jc_json_parse_sub_json(jc_json_t *js, const char *p, jc_val_t **val) { return -1; }
+static int __jc_json_parse_array(jc_json_t *js, const char *p, jc_val_t **val)
+{
+    int              n, inc;
+    jc_val_t        *arr_val;
+    jc_array_t      *arr;
+    jc_arr_state_t   state;
+
+    if ((arr = jc_array_create(js->pool)) == NULL) {
+        return -1;
+    }
+
+    if (p[0] == '[') {
+        state = JC_ARR_START;
+    } else {
+        return -1;
+    }
+
+    for (n = 0; p[n] != '\0'; ++n) {
+        switch (state) {
+            case JC_ARR_START:
+                state = JC_ARR_VAL;
+                break;
+                
+            case JC_ARR_VAL:
+                inc = __jc_json_parse_val(js, &p[n], &arr_val);
+                if (inc == -1) {
+                    return -1;
+                }
+
+                n += inc;
+                if (p[n] == ',') {
+                    state = JC_ARR_COMMA;
+                } else if (p[n] == ']') {
+                    state = JC_ARR_END;
+                } else {
+                    return -1;
+                }
+                /* go back 1 char because n will be incr-ed 1 in for-loop */
+                --n;
+
+                if (jc_array_append(arr, js->pool, arr_val) == -1) {
+                    return -1;
+                }
+                break;
+
+            case JC_ARR_COMMA:
+                state = JC_ARR_VAL;
+                break;
+
+            case JC_ARR_END:
+                *val = jc_pool_alloc(js->pool, sizeof(jc_val_t));
+                if (*val == NULL) {
+                    return -1;
+                }
+                (*val)->type = JC_ARRAY;
+                (*val)->data.a = arr;
+                return n + 1;
+        }
+    }
+    return -1;
+}
+
+typedef enum {
+    JC_OBJ_START = 0,
+    JC_OBJ_LBRACE,
+    JC_OBJ_KEY,
+    JC_OBJ_VAL,
+    JC_OBJ_COLON,
+} jc_obj_state_t;
+
+static int __jc_json_parse_sub_json(jc_json_t *js, const char *p, jc_val_t **js_val)
+{
+    int              n, inc;
+    jc_key_t        *key;
+    jc_val_t        *val;
+    jc_json_t       *sub_js;
+    jc_obj_state_t   state;
+
+    if ((sub_js = jc_json_create()) == NULL) {
+        return -1;
+    }
+
+    if (p[0] == '{') {
+        state = JC_OBJ_START;
+    } else {
+        goto error;
+    }
+
+    for (n = 0; p[n] != '\0'; ++n) {
+        switch (state) {
+            case JC_OBJ_START:
+                if (p[n] == '{') {
+                    state = JC_OBJ_LBRACE;
+                    break;
+                }
+                goto error;
+
+            case JC_OBJ_LBRACE:
+            case JC_OBJ_KEY:
+                inc = __jc_json_parse_key(sub_js, &p[n], &key);
+                if (inc > 0) {
+                    n += inc - 1;
+                    state = JC_OBJ_COLON;
+                    break;
+                }
+                goto error;
+
+            case JC_OBJ_COLON:
+                if (p[n] == ':') {
+                    state = JC_OBJ_VAL;
+                    break;
+                }
+                goto error;
+
+            case JC_OBJ_VAL:
+                inc = __jc_json_parse_val(sub_js, &p[n], &val);
+                if (inc == -1) {
+                    goto error;
+                }
+                n += inc;
+                if (p[n] == ',') {
+                    /* in JC_OBJ_COMMA state */
+                    state = JC_OBJ_KEY;
+                    if (jc_json_add_kv(sub_js, key, val) == -1) {
+                        goto error;
+                    }
+                } else if (p[n] == '}') {
+                    /* Accept */
+                    if (jc_json_add_kv(sub_js, key, val) == -1) {
+                        goto error;
+                    }
+                    *js_val = jc_pool_alloc(js->pool, sizeof(jc_val_t));
+                    if (*js_val == NULL) {
+                        goto error;
+                    }
+                    (*js_val)->type = JC_JSON;
+                    (*js_val)->data.j = sub_js;
+                    return n + 1;
+                } else {
+                    goto error;
+                }
+                break;
+
+            default:
+                /* some error happens */
+                assert(0);
+        }
+    }
+
+error:
+    jc_json_destroy(sub_js);
+    return -1;
+}
 
 typedef enum {
     JC_STR_START = 0,
@@ -968,23 +1125,16 @@ static int __jc_json_parse_val(jc_json_t *js, const char *p, jc_val_t **val)
     return -1;
 }
 
-typedef enum {
-    JC_OBJ_START = 0,
-    JC_OBJ_LBRACE,
-    JC_OBJ_KEY,
-    JC_OBJ_VAL,
-    JC_OBJ_COLON,
-} jc_obj_state_t;
-
 jc_json_t *jc_json_parse(const char *p)
 {
-    int           n;
-    jc_key_t     *key;
-    jc_val_t     *val;
-    jc_json_t    *js;
+    int             n;
+    jc_key_t       *key;
+    jc_val_t       *val;
+    jc_json_t      *js;
     jc_obj_state_t  state;
 
     assert(p != NULL);
+
     if ((js = jc_json_create()) == NULL) {
         return NULL;
     }
@@ -1017,24 +1167,23 @@ jc_json_t *jc_json_parse(const char *p)
                 goto error;
 
             case JC_OBJ_VAL:
-                n = __jc_json_parse_val(js, p, &val);
-                if (n > 0) {
-                    p += n;
-                    if (*p == ',') {
-                        /* in JC_OBJ_COMMA state */
-                        state = JC_OBJ_KEY;
-                    } else if (*p == '}') {
-                        /* Accept */
-                        jc_json_add_kv(js, key, val);
-                        return js;
-                    } else {
-                        goto error;
-                    }
+                if ((n = __jc_json_parse_val(js, p, &val)) == -1) {
+                    goto error;
+                }
+                p += n;
+                if (*p == ',') {
+                    /* in JC_OBJ_COMMA state */
+                    state = JC_OBJ_KEY;
                     ++p;
                     jc_json_add_kv(js, key, val);
-                    break;
+                } else if (*p == '}') {
+                    /* Accept */
+                    jc_json_add_kv(js, key, val);
+                    return js;
+                } else {
+                    goto error;
                 }
-                goto error;
+                break;
 
             default:
                 /* some error happens */

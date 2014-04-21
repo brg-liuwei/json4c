@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
     jc_json_add_str(top, "Zoo", "Cassandra");
     jc_json_add_str(top, "Zoo", "Hive");
 
-    printf(RED WHITEBG HIGHLIGHT "%s" NONE "\n", jc_json_str(top));
+    //printf(RED WHITEBG HIGHLIGHT "%s" NONE "\n", jc_json_str(top));
 
     jc_json_destroy(top);
 
@@ -54,11 +54,14 @@ int main(int argc, char *argv[])
         "\"Gorozzo\":\"Italy\",\"Hanman\":\"America\","
         "\"Nunes\":\"Italy\",\"Dijver\":\"Netherland\",\"Boll\":null,"
         "\"Gestem\":true,\"Gallizzi\":true,\"Stayman\":false}";
-
-    printf("%s\n", json_str);
-    top = jc_json_parse(json_str);
-    if (top)
+    char top_str[2048];
+    snprintf(top_str, 2048, "{\"json\":{\"a\":[1,2,3]}}");
+    top = jc_json_parse(top_str);
+    if (top) {
         printf(YELLOW HIGHLIGHT BLUEBG "%s" NONE "\n", jc_json_str(top));
+    } else {
+        printf("parse error\n");
+    }
     jc_json_destroy(top);
 
     return 0;
