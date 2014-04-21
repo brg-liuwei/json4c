@@ -917,6 +917,23 @@ static int __jc_json_parse_sub_json(jc_json_t *js, const char *p, jc_val_t **js_
                 goto error;
 
             case JC_OBJ_LBRACE:
+                if (p[n] == '}') {
+                    /* empty json */
+                    *js_val = jc_pool_alloc(js->pool, sizeof(jc_val_t));
+                    if (*js_val == NULL) {
+                        goto error;
+                    }
+                    (*js_val)->type = JC_JSON;
+                    (*js_val)->data.j = sub_js;
+                    return n + 1;
+                } else if (p[n] == '\"') {
+                    --n;    /* back n because n will incr 1 in for loop */
+                    state = JC_OBJ_KEY;
+                } else {
+                    goto error;
+                }
+                break;
+
             case JC_OBJ_KEY:
                 inc = __jc_json_parse_key(sub_js, &p[n], &key);
                 if (inc > 0) {
@@ -1150,6 +1167,15 @@ jc_json_t *jc_json_parse(const char *p)
                 goto error;
 
             case JC_OBJ_LBRACE:
+                if (*p == '}') {
+                    return js;
+                } else if (*p == '\"') {
+                    state = JC_OBJ_KEY;
+                } else {
+                    goto error;
+                }
+                break;
+
             case JC_OBJ_KEY:
                 n = __jc_json_parse_key(js, p, &key);
                 if (n > 0) {
