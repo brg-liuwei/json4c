@@ -8,22 +8,7 @@
 #define JC_MEMSIZE 1024
 #define JC_INCSTEP 16
 
-typedef short                jc_bool_t;
-typedef double               jc_num_t;
-typedef struct jc_str_s      jc_str_t;
-typedef struct jc_array_s    jc_array_t;
-
 typedef struct jc_str_s      jc_key_t;
-typedef struct jc_val_s      jc_val_t;
-
-typedef enum __jc_type_t {
-    JC_BOOL = 0,
-    JC_NUM,
-    JC_STR,
-    JC_ARRAY,
-    JC_JSON,
-    JC_NULL
-} jc_type_t;
 
 struct jc_str_s {
     size_t   size;     /* size of str */
@@ -35,17 +20,6 @@ struct jc_array_s {
     size_t      size;     /* length of array */
     size_t      free;     /* free size of array */
     jc_val_t  **value;
-};
-
-struct jc_val_s {
-    jc_type_t         type;
-    union {
-        jc_bool_t     b;
-        jc_num_t      n;
-        jc_str_t     *s;
-        jc_array_t   *a;
-        jc_json_t    *j;
-    } data;
 };
 
 struct jc_json_s {
@@ -233,6 +207,24 @@ static int jc_bsearch_key(jc_json_t *js, jc_key_t *key)
     for (l = 0, r = js->size - 1; l <= r; /* void */ ) {
         m = l + ((r -l) >> 1);
         rc = strcmp(key->body, js->keys[m]->body);
+        if (rc > 0) {
+            l = m + 1;
+        } else if (rc < 0) {
+            r = m - 1;
+        } else {
+            return m;
+        }
+    }
+    return -1;
+}
+
+static int jc_bsearch_str_key(jc_json_t *js, const char *key)
+{
+    int      l, r, m, rc;
+
+    for (l = 0, r = js->size - 1; l <= r; /* void */ ) {
+        m = l + ((r -l) >> 1);
+        rc = strcmp(key, js->keys[m]->body);
         if (rc > 0) {
             l = m + 1;
         } else if (rc < 0) {
@@ -1140,6 +1132,17 @@ static int __jc_json_parse_val(jc_json_t *js, const char *p, jc_val_t **val)
     }
     *val = NULL;
     return -1;
+}
+
+jc_val_t *jc_json_find(jc_json_t *js, const char *key)
+{
+    int  idx;
+
+    idx = jc_bsearch_str_key(js, key);
+    if (idx == -1) {
+        return NULL;
+    }
+    return js->vals[idx];
 }
 
 jc_json_t *jc_json_parse(const char *p)
