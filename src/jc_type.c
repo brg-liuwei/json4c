@@ -556,6 +556,11 @@ static int __jc_json_str(jc_json_t *js, char *p)
 
 const char *jc_json_str(jc_json_t *js)
 {
+    return jc_json_str_n(js, NULL);
+}
+
+const char *jc_json_str_n(jc_json_t *js, size_t *len)
+{
     size_t      jsize, n;
     char       *p;
 
@@ -567,6 +572,10 @@ const char *jc_json_str(jc_json_t *js)
     }
     n = __jc_json_str(js, p);
     p[n] = '\0';
+
+    if (len != NULL) {
+        *len = n;
+    }
 
     return p;
 }

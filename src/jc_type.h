@@ -52,6 +52,7 @@ jc_val_t *jc_json_find(jc_json_t *js, const char *key);
 
 /* json to string function */
 const char *jc_json_str(jc_json_t *js);
+const char *jc_json_str_n(jc_json_t *js, size_t *len);
 
 #endif
 

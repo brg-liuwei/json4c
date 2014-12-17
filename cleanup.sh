@@ -1,4 +1,4 @@
-#!/usr/bash
+#!/bin/sh
 
 rm -rf CMakeCache.txt
 rm -rf CMakeFiles
