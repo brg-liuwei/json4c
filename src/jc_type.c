@@ -840,7 +840,11 @@ static int __jc_json_parse_array(jc_json_t *js, const char *p, jc_val_t **val)
     for (n = 0; p[n] != '\0'; ++n) {
         switch (state) {
             case JC_ARR_START:
-                state = JC_ARR_VAL;
+                if (p[n+1] == ']') {
+                    state = JC_ARR_END;
+                } else {
+                    state = JC_ARR_VAL;
+                }
                 break;
                 
             case JC_ARR_VAL:
