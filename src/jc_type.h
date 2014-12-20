@@ -50,6 +50,10 @@ int jc_json_add_null(jc_json_t *js, const char *key);
 /* json find function */
 jc_val_t *jc_json_find(jc_json_t *js, const char *key);
 
+/* json array function */
+size_t jc_array_size(jc_array_t *jarray);
+jc_val_t *jc_array_get(jc_array_t *jarray, size_t idx);
+
 /* json to string function */
 const char *jc_json_str(jc_json_t *js);
 const char *jc_json_str_n(jc_json_t *js, size_t *len);

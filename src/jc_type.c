@@ -124,6 +124,16 @@ static void jc_kv_insert(jc_json_t *js, jc_key_t *key, jc_val_t *val)
     --js->free;
 }
 
+size_t jc_array_size(jc_array_t *jarray)
+{
+    return jarray->size;
+}
+
+jc_val_t *jc_array_get(jc_array_t *jarray, size_t idx)
+{
+    return idx >= jarray->size ? NULL : jarray->value[idx];
+}
+
 static int jc_array_incr(jc_array_t *arr, jc_pool_t *pool)
 {
     size_t      i;

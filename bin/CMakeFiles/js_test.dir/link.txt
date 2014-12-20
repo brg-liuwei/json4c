@@ -1,0 +1,1 @@
+/usr/bin/cc   -Wl,-search_paths_first -Wl,-headerpad_max_install_names   CMakeFiles/js_test.dir/jc_main.c.o CMakeFiles/js_test.dir/jc_type.c.o CMakeFiles/js_test.dir/jc_alloc.c.o  -o js_test  
