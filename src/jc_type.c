@@ -8,8 +8,6 @@
 #define JC_MEMSIZE 1024
 #define JC_INCSTEP 16
 
-typedef struct jc_str_s      jc_key_t;
-
 struct jc_str_s {
     size_t   size;     /* size of str */
     size_t   free;     /* free space */

@@ -12,6 +12,7 @@ typedef struct jc_str_s      jc_str_t;
 typedef struct jc_array_s    jc_array_t;
 typedef struct jc_json_s     jc_json_t;
 
+typedef struct jc_str_s      jc_key_t;
 typedef struct jc_val_s      jc_val_t;
 
 typedef enum __jc_type_t {
@@ -59,4 +60,3 @@ const char *jc_json_str(jc_json_t *js);
 const char *jc_json_str_n(jc_json_t *js, size_t *len);
 
 #endif
-
