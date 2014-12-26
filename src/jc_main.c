@@ -53,7 +53,8 @@ int main(int argc, char *argv[])
         "\"Reese\":99.999e+3,\"Zia\":\"America\","
         "\"Gorozzo\":\"Italy\",\"Hanman\":\"America\","
         "\"Nunes\":\"Italy\",\"Dijver\":\"Netherland\",\"Boll\":null,"
-        "\"Gestem\":true,\"Gallizzi\":true,\"Stayman\":false}";
+        "\"Gestem\":true,\"Gallizzi\":true,\"Stayman\":false,"
+        "\"Aunicode\":\"\u4e2d\u56fd\"}";
     char top_str[2048];
     snprintf(top_str, 2048, "{\"json\":{\"a\":[%s,%s,%s]},\"hello\":%s,\"array\":[%s]}", json_str, json_str, json_str, json_str, json_str);
     top = jc_json_parse(top_str);
@@ -61,7 +62,6 @@ int main(int argc, char *argv[])
         printf(YELLOW HIGHLIGHT BLUEBG "%s" NONE "\n", jc_json_str(top));
     } else {
         printf(YELLOW HIGHLIGHT BLUEBG "%s" NONE "\n", top_str);
-        printf("=========> parse error\n");
     }
     jc_json_destroy(top);
 

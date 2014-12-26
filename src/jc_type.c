@@ -1,5 +1,6 @@
 #include "jc_type.h"
 #include "jc_alloc.h"
+#include "jc_wchar.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -1013,8 +1014,8 @@ typedef enum {
 
 static int __jc_json_parse_key(jc_json_t *js, const char *p, jc_key_t **key)
 {
-    size_t   n;
-    size_t   size;
+    int      tmp;
+    size_t   n, size;
 
     jc_str_state_t  state;
 
@@ -1029,12 +1030,17 @@ static int __jc_json_parse_key(jc_json_t *js, const char *p, jc_key_t **key)
                 if (p[n+1] == '\0') {
                     return -1;
                 }
-                /* TODO: need to judge size of Unicode if support \uXXXX */
-                /* if (p[n+1] == 'u') {
-                 *    calc size
-                 * }
-                 * */
-                n += 2;
+                /* calc size of Unicode '\uXXXX' */
+                if (p[n+1] == 'u') {
+                    tmp = jc_wctomb(&p[n], NULL);
+                    if (tmp == -1) {
+                        return -1;
+                    }
+                    n += 5;
+                    size += tmp;
+                } else {
+                    n += 2;
+                }
                 break;
             case '"':
                 goto parse;
@@ -1111,8 +1117,10 @@ parse:
                         (*key)->body[size++] = '\t';
                         break;
                     case 'u':
-                        /* TODO: use wctomb to trans Unicode to Chars */
-                        return -1;
+                        /* use wctomb to trans Unicode to Chars */
+                        size += jc_wctomb(&p[n-1], &((*key)->body[size]));
+                        n += 4;
+                        break;
                     default:
                         /* illegal char: \x */
                         return -1;
