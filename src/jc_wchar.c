@@ -4,7 +4,7 @@
 
 static int hex_table[256];
 static int jc_wc_init(const char *unicode, char *chs);
-static int jc_wctomb_interal(const char *unicode, char *chs);
+static int jc_wctomb_internal(const char *unicode, char *chs);
 
 static int (*jc_wctomb_func)(const char *, char *) = jc_wc_init;
 
@@ -29,12 +29,12 @@ static int jc_wc_init(const char *unicode, char *chs)
         hex_table[ch] = ch - 'A' + 10;
     }
 
-    jc_wctomb_func = jc_wctomb_interal;
+    jc_wctomb_func = jc_wctomb_internal;
 
-    return jc_wctomb_interal(unicode, chs);
+    return jc_wctomb_internal(unicode, chs);
 }
 
-static int jc_wctomb_interal(const char *unicode, char *chs)
+static int jc_wctomb_internal(const char *unicode, char *chs)
 {
     int      i, num;
     char    *p;
