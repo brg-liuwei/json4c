@@ -18,17 +18,6 @@
 
 int main(int argc, char *argv[])
 {
-    jc_json_t *js;
-
-    js = jc_json_create();
-    jc_json_add_str(js, "title", "这里是\\推广\\|标题|这里是小字");
-    printf("%s\n", jc_json_str(js));
-    jc_json_destroy(js);
-    return 0;
-}
-
-int main_t(int argc, char *argv[])
-{
     int         i;
     jc_json_t  *js, *top;
 
