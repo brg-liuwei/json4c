@@ -1042,6 +1042,7 @@ static int __jc_json_parse_key(jc_json_t *js, const char *p, jc_key_t **key)
                     size += tmp;
                 } else {
                     n += 2;
+                    ++size;
                 }
                 break;
             case '"':
