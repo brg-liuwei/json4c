@@ -6,16 +6,21 @@ EXAMPLE_OBJS = example/example.o
 EXAMPLE_BIN = example/example
 
 CONF_H = jc_config.h
-$(shell ./build_conf.sh ${CONF_H})
+VAR = vars.mk
+$(shell ./build_conf.sh ${CONF_H} ${VAR})
+include ${VAR}
 
-IFLAGS = -I. -I./src
+IFLAGS = -I. -I./include
 
-LIB = libjson4c.a
+STATIC_LIB = libjson4c.a
+DYNAMIC_LIB = libjson4c${DYLIB_SUFFIX}
 
 .PHONY: all
-all: ${LIB}
-${LIB}: ${OBJS}
+all: ${STATIC_LIB} ${DYNAMIC_LIB}
+${STATIC_LIB}: ${OBJS}
 	${AR} -rs $@ ${OBJS}
+${DYNAMIC_LIB}: ${OBJS}
+	${CC} -fPIC -shared ${OBJS} -o $@
 ${OBJS}: %.o: %.c
 	${CC} ${IFLAGS} -c $^ -o $@
 
@@ -28,4 +33,4 @@ ${EXAMPLE_OBJS}: %.o: %.c
 
 .PHONY: clean
 clean:
-	${RM} ${CONF_H} ${OBJS} ${EXAMPLE_BIN} ${EXAMPLE_OBJS} ${LIB}
+	${RM} ${CONF_H} ${VAR} ${OBJS} ${EXAMPLE_BIN} ${EXAMPLE_OBJS} ${STATIC_LIB} ${DYNAMIC_LIB}
