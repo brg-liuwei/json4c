@@ -11,6 +11,7 @@ $(shell ./build_conf.sh ${CONF_H} ${VAR})
 include ${VAR}
 
 IFLAGS = -I. -I./include
+CFLAGS = -fPIC
 
 STATIC_LIB = libjson4c.a
 DYNAMIC_LIB = libjson4c${DYLIB_SUFFIX}
@@ -20,9 +21,9 @@ all: ${STATIC_LIB} ${DYNAMIC_LIB}
 ${STATIC_LIB}: ${OBJS}
 	${AR} -rs $@ ${OBJS}
 ${DYNAMIC_LIB}: ${OBJS}
-	${CC} -fPIC -shared ${OBJS} -o $@
+	${CC} -shared ${OBJS} -o $@
 ${OBJS}: %.o: %.c
-	${CC} ${IFLAGS} -c $^ -o $@
+	${CC} ${IFLAGS} ${CFLAGS} -c $^ -o $@
 
 .PHONY: example
 example: ${EXAMPLE_BIN}
