@@ -1,4 +1,2 @@
 jc_json_parse only support json object,
 this func should serve for json array on next version.
-
-refcount feature should be added into jc_json_add_json.
