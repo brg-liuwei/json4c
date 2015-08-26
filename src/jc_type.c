@@ -27,6 +27,7 @@ struct jc_json_s {
     jc_key_t   **keys;     /* keys of json */
     jc_val_t   **vals;     /* values of json */
     jc_pool_t   *pool;     /* mem pool of json */
+    size_t       ref;      /* refcount */
 };
 
 static int __jc_json_str(jc_json_t *js, char *p);
@@ -34,6 +35,7 @@ static size_t __jc_json_val_size(jc_val_t *val);
 static size_t __jc_json_size(jc_json_t *js);
 static int __jc_json_parse_key(jc_json_t *js, const char *p, jc_key_t **key);
 static int __jc_json_parse_val(jc_json_t *js, const char *p, jc_val_t **val);
+static void __jc_json_cleanup(jc_val_t *val);
 
 jc_json_t *jc_json_create()
 {
@@ -51,11 +53,29 @@ jc_json_t *jc_json_create()
     json->keys = NULL;
     json->vals = NULL;
     json->pool = pool;
+    json->ref = 1;
     return json;
 
 free:
     jc_pool_destroy(pool);
     return NULL;
+}
+
+static void __jc_json_cleanup(jc_val_t *val) {
+    size_t i;
+
+    if (val->type == JC_JSON) {
+        jc_json_destroy(val->data.j);
+        return;
+    }
+    if (val->type == JC_ARRAY && val->data.a->size != 0) {
+        jc_type_t type = val->data.a->value[0]->type;
+        if (type == JC_JSON || type == JC_ARRAY) {
+            for (i = 0; i != val->data.a->size; ++i) {
+                __jc_json_cleanup(val->data.a->value[i]);
+            }
+        }
+    }
 }
 
 void jc_json_destroy(jc_json_t *js)
@@ -67,19 +87,14 @@ void jc_json_destroy(jc_json_t *js)
         return;
     }
 
+    assert(js->ref > 0);
+    if (--js->ref != 0) {
+        return;
+    }
+
     for (i = 0; i != js->size; ++i) {
         val = js->vals[i];
-        if (val->type == JC_JSON) {
-            /* careful here, if more than 2 js is added in this json, program will crash */
-            jc_json_destroy(val->data.j);
-        }
-        if (val->type == JC_ARRAY && val->data.a->size != 0) {
-            if (val->data.a->value[0]->type == JC_JSON) {
-                for (j = 0; j != val->data.a->size; ++j) {
-                    jc_json_destroy(val->data.a->value[j]->data.j);
-                }
-            }
-        }
+        __jc_json_cleanup(val);
     }
     jc_pool_destroy(js->pool);
 }
@@ -398,6 +413,11 @@ int jc_json_add_json(jc_json_t *js, const char *key, jc_json_t *sub_js)
     assert(key != NULL);
     assert(sub_js != NULL);
 
+    /* reject self added */
+    if (js == sub_js) {
+        return -1;
+    }
+
     if ((k = jc_key(js->pool, key)) == NULL) {
         return -1;
     }
@@ -405,7 +425,11 @@ int jc_json_add_json(jc_json_t *js, const char *key, jc_json_t *sub_js)
     v->type = JC_JSON;
     v->data.j = sub_js;
 
-    return jc_json_add_kv(js, k, v);
+    if (jc_json_add_kv(js, k, v) == 0) {
+        sub_js->ref++;
+        return 0;
+    }
+    return -1;
 }
 
 static size_t __jc_json_array_size(jc_array_t *arr)
@@ -594,7 +618,7 @@ const char *jc_json_str_n(jc_json_t *js, size_t *len)
 /* ====================================
  * To parse json string to json object, 
  * We use state mechine. For detail,
- * please see http://www.json.org/ 
+ * please see http://www.json.org
  * ==================================== */
 
 typedef enum {

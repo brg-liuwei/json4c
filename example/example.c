@@ -1,4 +1,3 @@
-#include "jc_alloc.h"
 #include "jc_type.h"
 
 #include <stdio.h>
@@ -19,11 +18,12 @@
 int main(int argc, char *argv[])
 {
     int         i;
-    jc_json_t  *js, *top;
+    jc_json_t  *js, *top, *js_pool[10];
 
     top = jc_json_create();
     for (i = 0; i != 10; ++i) {
         js = jc_json_create();
+        js_pool[i] = js;
 
         jc_json_add_bool(js, "iOS", 0);
         jc_json_add_num(js, "Windows", 18);
@@ -47,6 +47,9 @@ int main(int argc, char *argv[])
     printf(RED WHITEBG HIGHLIGHT "%s" NONE "\n", jc_json_str(top));
 
     jc_json_destroy(top);
+    for (i = 0; i != 10; ++i) {
+        jc_json_destroy(js_pool[i]);
+    }
 
     char *json_str = "{\"RodWell\":\"America\",\"Fatoni\":18e-3,"
         "\"Mekstroth\":-8.88,\"Belladona\":-98e-2,"
