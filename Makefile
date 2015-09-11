@@ -10,7 +10,7 @@ VAR = vars.mk
 $(shell ./build_conf.sh ${CONF_H} ${VAR})
 include ${VAR}
 
-IFLAGS = -I. -I./include
+IFLAGS = -I. -I./include/json4c
 CFLAGS = -fPIC
 
 STATIC_LIB = libjson4c.a
