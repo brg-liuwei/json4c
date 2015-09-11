@@ -4,8 +4,6 @@
 #include <sys/types.h>
 #include <stdint.h>
 
-#include "jc_alloc.h"
-
 typedef short                jc_bool_t;
 typedef double               jc_num_t;
 typedef struct jc_str_s      jc_str_t;
