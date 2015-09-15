@@ -68,6 +68,22 @@ int main(int argc, char *argv[])
     }
     jc_json_destroy(top);
 
+    jc_json_t *js2;
+    const char *s = "{\"title\":\"双引号测试：\\\"中华人民共和国\\\"\",\"\\\"双引号\\\"key测试\":true,\"斜杠测试\":\"///\"}";
+    printf("%s\n", s);
+
+    js2 = jc_json_parse(s);
+    printf("%s\n", jc_json_str(js2));
+    jc_json_destroy(js2);
+
+    js2 = jc_json_parse(s);
+    const char *js2_str = jc_json_str(js2);
+    jc_json_destroy(js2);
+
+    js2 = jc_json_parse(js2_str);
+    printf("%s\n", jc_json_str(js2));
+    jc_json_destroy(js2);
+
     return 0;
 }
 

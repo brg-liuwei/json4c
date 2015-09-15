@@ -448,8 +448,8 @@ static size_t __jc_json_array_size(jc_array_t *arr)
 
 static size_t __jc_json_val_size(jc_val_t *val)
 {
-    size_t s;
-    char f[512];
+    size_t s, i;
+    char ch, f[512];
 
     s = 0;
 
@@ -463,6 +463,17 @@ static size_t __jc_json_val_size(jc_val_t *val)
             break;
         case JC_STR:
             s += val->data.s->size + sizeof("\"\"") - 1;
+            for (i = 0; i != val->data.s->size; i++) {
+                ch = val->data.s->body[i];
+                if (ch == '\0') {
+                    break;
+                }
+                if (ch == '\"' || ch == '\\' || ch == '/' || ch == '\b' || ch == '\f'
+                        || ch == '\n' || ch == '\r' || ch == '\t')
+                {
+                    ++s;
+                }
+            }
             break;
         case JC_ARRAY:
             s += __jc_json_array_size(val->data.a);
@@ -483,13 +494,25 @@ static size_t __jc_json_val_size(jc_val_t *val)
 
 static size_t __jc_json_size(jc_json_t *js)
 {
-    size_t  s, i;
+    char    ch;
+    size_t  s, i, j;
 
     s = sizeof("{}");
     for (i = 0; i != js->size; ++i) {
 
         /* key size without teminating '\0' and "": */
         s += (js->keys[i]->size - 1) + (sizeof("\"\":") - 1);
+        for (j = 0; j != js->keys[i]->size-1; j++) {
+            ch = js->keys[i]->body[j];
+            if (ch == '\0') {
+                break;
+            }
+            if (ch == '\"' || ch == '\\' || ch == '/' || ch == '\b' 
+                    || ch == '\f' || ch == '\n' || ch == '\r' || ch == '\t')
+            {
+                ++s;
+            }
+        }
 
         /* value size */
         s += __jc_json_val_size(js->vals[i]);
@@ -504,6 +527,7 @@ static size_t __jc_json_size(jc_json_t *js)
 
 static int __jc_json_value(jc_val_t *val, char *p)
 {
+    char         ch;
     size_t       i;
     const char  *base;
 
@@ -532,7 +556,50 @@ static int __jc_json_value(jc_val_t *val, char *p)
             break;
 
         case JC_STR:
-            p += sprintf(p, "\"%s\"", val->data.s->body);
+            *p++ = '\"';
+            for (i = 0; i != val->data.s->size; ++i) {
+                ch = val->data.s->body[i];
+                switch (ch) {
+                    case '\0':
+                        goto end_str_val;
+                    case '\"':
+                        *p++ = '\\';
+                        *p++ = '\"';
+                        break;
+                    case '\\':
+                        *p++ = '\\';
+                        *p++ = '\\';
+                        break;
+                    case '/':
+                        *p++ = '\\';
+                        *p++ = '/';
+                        break;
+                    case '\b':
+                        *p++ = '\\';
+                        *p++ = 'b';
+                        break;
+                    case '\f':
+                        *p++ = '\\';
+                        *p++ = 'f';
+                        break;
+                    case '\n':
+                        *p++ = '\\';
+                        *p++ = 'n';
+                        break;
+                    case '\r':
+                        *p++ = '\\';
+                        *p++ = 'r';
+                        break;
+                    case '\t':
+                        *p++ = '\\';
+                        *p++ = 't';
+                        break;
+                    default:
+                        *p++ = ch;
+                }
+            }
+end_str_val:
+            *p++ = '\"';
             break;
 
         case JC_ARRAY:
@@ -568,7 +635,8 @@ static int __jc_json_value(jc_val_t *val, char *p)
 
 static int __jc_json_str(jc_json_t *js, char *p)
 {
-    size_t       i;
+    char         ch;
+    size_t       i, j;
     jc_val_t    *val;
     const char  *base;
 
@@ -576,7 +644,51 @@ static int __jc_json_str(jc_json_t *js, char *p)
     *p++ = '{';
     for (i = 0; i != js->size; ++i) {
         /* print key */
-        p += sprintf(p, "\"%s\":", js->keys[i]->body);
+        *p++ = '\"';
+        for (j = 0; j != js->keys[i]->size; ++j) {
+            ch = js->keys[i]->body[j];
+            switch (ch) {
+                case '\0':
+                    goto end_str;
+                case '\"':
+                    *p++ = '\\';
+                    *p++ = '\"';
+                    break;
+                case '\\':
+                    *p++ = '\\';
+                    *p++ = '\\';
+                    break;
+                case '/':
+                    *p++ = '\\';
+                    *p++ = '/';
+                    break;
+                case '\b':
+                    *p++ = '\\';
+                    *p++ = 'b';
+                    break;
+                case '\f':
+                    *p++ = '\\';
+                    *p++ = 'f';
+                    break;
+                case '\n':
+                    *p++ = '\\';
+                    *p++ = 'n';
+                    break;
+                case '\r':
+                    *p++ = '\\';
+                    *p++ = 'r';
+                    break;
+                case '\t':
+                    *p++ = '\\';
+                    *p++ = 't';
+                    break;
+                default:
+                    *p++ = ch;
+            }
+        }
+end_str:
+        *p++ = '\"';
+        *p++ = ':';
 
         /* print value */
         p += __jc_json_value(js->vals[i], p);
