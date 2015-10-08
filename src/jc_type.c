@@ -140,6 +140,16 @@ static void jc_kv_insert(jc_json_t *js, jc_key_t *key, jc_val_t *val)
     --js->free;
 }
 
+size_t jc_str_size(jc_str_t *s)
+{
+    return s->size - 1; // remove terminal zero
+}
+
+const char *jc_str_body(jc_str_t *s)
+{
+    return s->body;
+}
+
 size_t jc_array_size(jc_array_t *jarray)
 {
     return jarray->size;
@@ -1393,3 +1403,17 @@ error:
     return NULL;
 }
 
+size_t jc_json_size(jc_json_t *js)
+{
+    return js->size;
+}
+
+jc_str_t *jc_json_get_key(jc_json_t *js, size_t idx)
+{
+    return idx >= js->size ? NULL : js->keys[idx];
+}
+
+jc_val_t *jc_json_get_val(jc_json_t *js, size_t idx)
+{
+    return idx >= js->size ? NULL : js->vals[idx];
+}

@@ -49,9 +49,18 @@ int jc_json_add_null(jc_json_t *js, const char *key);
 /* json find function */
 jc_val_t *jc_json_find(jc_json_t *js, const char *key);
 
+/* json str function */
+size_t jc_str_size(jc_str_t *s);
+const char *jc_str_body(jc_str_t *s);
+
 /* json array function */
 size_t jc_array_size(jc_array_t *jarray);
 jc_val_t *jc_array_get(jc_array_t *jarray, size_t idx);
+
+/* json obj function */
+size_t jc_json_size(jc_json_t *js);
+jc_str_t *jc_json_get_key(jc_json_t *js, size_t idx);
+jc_val_t *jc_json_get_val(jc_json_t *js, size_t idx);
 
 /* json to string function */
 const char *jc_json_str(jc_json_t *js);
