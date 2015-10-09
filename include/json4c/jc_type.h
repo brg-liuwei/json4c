@@ -1,6 +1,10 @@
 #ifndef __JC_TYPE_H__
 #define __JC_TYPE_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <sys/types.h>
 #include <stdint.h>
 
@@ -65,5 +69,9 @@ jc_val_t *jc_json_get_val(jc_json_t *js, size_t idx);
 /* json to string function */
 const char *jc_json_str(jc_json_t *js);
 const char *jc_json_str_n(jc_json_t *js, size_t *len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

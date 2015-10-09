@@ -6,10 +6,6 @@
  * I followed your memory pool of nginx 
  * */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "jc_config.h"
 
 #ifdef HAVE_SYS_TYPES_H
@@ -31,10 +27,6 @@ typedef void (*jc_pool_cln_t)(void *);
 jc_pool_t *jc_pool_create(size_t  size);
 void jc_pool_destroy(jc_pool_t *pool);
 void *jc_pool_alloc(jc_pool_t *pool, size_t size);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 
