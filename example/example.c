@@ -84,6 +84,16 @@ int main(int argc, char *argv[])
     printf("%s\n", jc_json_str(js2));
     jc_json_destroy(js2);
 
+    printf("===============>\n");
+    char *biddingx = "{\"success\":false,\"code\":9,\"message\":\"\u53c2\u6570\u9519\u8bef\"}";
+    jc_json_t *bidj = jc_json_parse(biddingx);
+    printf("%s\n", jc_json_str(bidj));
+    printf("===============>\n");
+
+    jc_json_t *num_js = jc_json_parse("{\"num\":12345}");
+    printf("%s\n", jc_json_str(num_js));
+    jc_json_destroy(num_js);
+
     return 0;
 }
 

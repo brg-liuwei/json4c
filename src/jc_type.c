@@ -8,6 +8,7 @@
 
 #define JC_MEMSIZE 1024
 #define JC_INCSTEP 16
+#define JC_MICRO 1e-7
 
 struct jc_str_s {
     size_t   size;     /* size of str */
@@ -458,8 +459,9 @@ static size_t __jc_json_array_size(jc_array_t *arr)
 
 static size_t __jc_json_val_size(jc_val_t *val)
 {
-    size_t s, i;
-    char ch, f[512];
+    char    ch, f[512];
+    size_t  s, i;
+    double  a, inta, gap;
 
     s = 0;
 
@@ -468,8 +470,17 @@ static size_t __jc_json_val_size(jc_val_t *val)
             s += sizeof("false") - 1;
             break;
         case JC_NUM:
+            a = val->data.n;
+            inta = (double)((int)a);
+            gap = a > inta ? a - inta : inta - a;
+            gap = gap < 0.5 ? gap : 1.0 - gap;
+
             /* use snprintf to calc the size of double */
-            s += snprintf(f, 511, "%.03lg", val->data.n);
+            if (gap < JC_MICRO) {
+                s += snprintf(f, 511, "%d", (int)a);
+            } else {
+                s += snprintf(f, 511, "%f", a);
+            }
             break;
         case JC_STR:
             s += val->data.s->size + sizeof("\"\"") - 1;
@@ -538,6 +549,7 @@ static size_t __jc_json_size(jc_json_t *js)
 static int __jc_json_value(jc_val_t *val, char *p)
 {
     char         ch;
+    double       a, inta, gap;
     size_t       i;
     const char  *base;
 
@@ -562,7 +574,15 @@ static int __jc_json_value(jc_val_t *val, char *p)
             break;
 
         case JC_NUM:
-            p += sprintf(p, "%.03lg", val->data.n);
+            a = val->data.n;
+            inta = (double)((int)a);
+            gap = a > inta ? a - inta : inta - a; // for now, 0.0 <= gap <= 0.9999999+
+            gap = gap < 0.5 ? gap : 1.0 - gap;
+            if (gap < JC_MICRO) {
+                p += sprintf(p, "%d", (int)a);
+            } else {
+                p += sprintf(p, "%f", a);
+            }
             break;
 
         case JC_STR:
