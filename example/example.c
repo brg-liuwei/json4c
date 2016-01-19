@@ -88,6 +88,7 @@ int main(int argc, char *argv[])
     char *biddingx = "{\"success\":false,\"code\":9,\"message\":\"\u53c2\u6570\u9519\u8bef\"}";
     jc_json_t *bidj = jc_json_parse(biddingx);
     printf("%s\n", jc_json_str(bidj));
+    jc_json_destroy(bidj);
     printf("===============>\n");
 
     jc_json_t *num_js = jc_json_parse("{\"num\":12345}");

@@ -1,5 +1,5 @@
 CC ?= gcc
-RM ?= RM -rf
+RM = rm -rf
 OBJS = src/jc_alloc.o src/jc_type.o src/jc_wchar.o
 
 EXAMPLE_OBJS = example/example.o
